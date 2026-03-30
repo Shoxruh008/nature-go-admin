@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Admin email (bu emailni o'zgartiring agar kerak bo'lsa)
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.token.email == 'evolution2024team@gmail.com';
+    }
+
+    // Mehmon foydalanuvchilar (tizimga kirmagan)
+    function isGuest() {
+      return request.auth == null;
+    }
+
+    // Tasdiqlangan joy
+    function isPublished(data) {
+      return data.isPublished == true;
+    }
+
+    // JOYLAR (places)
+    match /places/{placeId} {
+      // Mehmonlar faqat nashr etilgan joylarni o'qiy oladi
+      allow read: if isAdmin() || isPublished(resource.data);
+      // Faqat admin yozishi mumkin
+      allow write: if isAdmin();
+    }
+
+    // SHARHLAR (reviews)
+    match /reviews/{reviewId} {
+      // Mehmonlar faqat nashr etilgan sharhlarni o'qiy oladi
+      allow read: if isAdmin() || isPublished(resource.data);
+      // Har kim sharh yoza oladi (mobil app orqali), faqat admin o'zgartira oladi
+      allow create: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    // Boshqa barcha hujjatlar - faqat admin
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
