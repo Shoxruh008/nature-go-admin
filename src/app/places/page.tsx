@@ -1,16 +1,39 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db, storage } from '@/lib/firebase';
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { ref as storageRef, deleteObject, listAll } from 'firebase/storage';
 import AuthGuard from '@/components/AuthGuard';
 import PlaceEditModal from '@/components/PlaceEditModal';
 import { PlaceModel, PLACE_TYPES } from '@/types';
-import {
-  Search, Filter, RefreshCw, Check, X, Edit2, Trash2, MapPin, Eye, EyeOff, Star
-} from 'lucide-react';
+import { Search, RefreshCw, Edit2, Trash2, MapPin, Eye, EyeOff, Star, Loader2 } from 'lucide-react';
 
 type SortField = 'name' | 'region' | 'type' | 'baseRating' | 'createdAt';
 type FilterStatus = 'all' | 'published' | 'unpublished';
+
+// Delete a single Storage file by URL, silently ignore errors
+async function deleteStorageUrl(url: string) {
+  try {
+    if (!url || !url.includes('firebasestorage')) return;
+    const sRef = storageRef(storage, url);
+    await deleteObject(sRef);
+  } catch {
+    // File may already be deleted or URL is external — ignore
+  }
+}
+
+// Delete an entire Storage folder (e.g. places/{id}/)
+async function deleteStorageFolder(path: string) {
+  try {
+    const folderRef = storageRef(storage, path);
+    const list = await listAll(folderRef);
+    await Promise.all(list.items.map(item => deleteObject(item)));
+    // Recursively delete prefixes (sub-folders)
+    await Promise.all(list.prefixes.map(prefix => deleteStorageFolder(prefix.fullPath)));
+  } catch {
+    // Folder may not exist — ignore
+  }
+}
 
 export default function PlacesPage() {
   const [places, setPlaces] = useState<PlaceModel[]>([]);
@@ -47,12 +70,30 @@ export default function PlacesPage() {
     }
   };
 
-  const deletePlace = async (id: string) => {
-    if (!confirm("Bu joyni o'chirasizmi? Bu amalni qaytarib bo'lmaydi.")) return;
-    setDeleting(id);
+  const deletePlace = async (place: PlaceModel) => {
+    if (!confirm(`"${place.name}" joyini o'chirasizmi?\nBarcha rasm, fayl va sharhlar ham o'chadi. Bu amalni qaytarib bo'lmaydi.`)) return;
+    setDeleting(place.id);
     try {
-      await deleteDoc(doc(db, 'places', id));
-      setPlaces(ps => ps.filter(p => p.id !== id));
+      // 1. Delete all reviews for this place (and their Storage images)
+      const reviewsSnap = await getDocs(
+        query(collection(db, 'reviews'), where('placeId', '==', place.id))
+      );
+      await Promise.all(reviewsSnap.docs.map(async (reviewDoc) => {
+        const reviewData = reviewDoc.data();
+        // Delete review images from Storage
+        if (reviewData.images?.length) {
+          await Promise.all((reviewData.images as string[]).map(url => deleteStorageUrl(url)));
+        }
+        await deleteDoc(reviewDoc.ref);
+      }));
+
+      // 2. Delete place Storage folder (images + route files)
+      await deleteStorageFolder(`places/${place.id}`);
+
+      // 3. Delete place document
+      await deleteDoc(doc(db, 'places', place.id));
+
+      setPlaces(ps => ps.filter(p => p.id !== place.id));
     } finally {
       setDeleting(null);
     }
@@ -123,7 +164,6 @@ export default function PlacesPage() {
         {/* Filters */}
         <div className="card mb-5">
           <div className="flex flex-wrap gap-3">
-            {/* Search */}
             <div className="relative flex-1 min-w-48">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
               <input
@@ -133,12 +173,10 @@ export default function PlacesPage() {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            {/* Type filter */}
             <select className="input w-auto min-w-36" value={filterType} onChange={e => setFilterType(e.target.value)}>
               <option value="all">Barcha turlar</option>
               {PLACE_TYPES.map(t => <option key={t.id} value={t.id}>{t.icon} {t.label}</option>)}
             </select>
-            {/* Status filter */}
             <select className="input w-auto min-w-36" value={filterStatus}
               onChange={e => setFilterStatus(e.target.value as FilterStatus)}>
               <option value="all">Barcha holat</option>
@@ -212,7 +250,6 @@ export default function PlacesPage() {
                         </td>
                         <td>
                           <div className="flex items-center gap-1.5">
-                            {/* Accept/Reject toggle */}
                             <button
                               onClick={() => togglePublish(place)}
                               disabled={togglingId === place.id}
@@ -223,9 +260,11 @@ export default function PlacesPage() {
                                 color: place.isPublished ? '#dc2626' : '#16a34a',
                               }}
                             >
-                              {place.isPublished ? <EyeOff size={14} /> : <Eye size={14} />}
+                              {togglingId === place.id
+                                ? <Loader2 size={13} className="animate-spin" />
+                                : place.isPublished ? <EyeOff size={14} /> : <Eye size={14} />
+                              }
                             </button>
-                            {/* Edit */}
                             <button
                               onClick={() => setEditPlace(place)}
                               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
@@ -234,15 +273,17 @@ export default function PlacesPage() {
                             >
                               <Edit2 size={14} />
                             </button>
-                            {/* Delete */}
                             <button
-                              onClick={() => deletePlace(place.id)}
+                              onClick={() => deletePlace(place)}
                               disabled={deleting === place.id}
                               className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
                               title="O'chirish"
                               style={{ background: '#fee2e2', color: '#dc2626' }}
                             >
-                              <Trash2 size={14} />
+                              {deleting === place.id
+                                ? <Loader2 size={13} className="animate-spin" />
+                                : <Trash2 size={14} />
+                              }
                             </button>
                           </div>
                         </td>

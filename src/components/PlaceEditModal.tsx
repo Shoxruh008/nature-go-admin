@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import { db, storage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { X, Plus, Trash2, Upload, FileText, Loader2 } from 'lucide-react';
 import { PlaceModel, PLACE_TYPES, SEASONS, SEASON_UZ, ALL_TAGS, TAG_UZ } from '@/types';
 
@@ -206,7 +206,14 @@ export default function PlaceEditModal({ place, onClose, onSaved }: Props) {
                 {form.images.map((img, i) => (
                   <div key={i} className="relative group aspect-video rounded-lg overflow-hidden" style={{ background: 'var(--border)' }}>
                     <img src={img} alt="" className="w-full h-full object-cover" />
-                    <button onClick={() => set('images', form.images.filter((_, j) => j !== i))}
+                    <button onClick={async () => {
+                        try {
+                          if (img && img.includes('firebasestorage')) {
+                            await deleteObject(storageRef(storage, img));
+                          }
+                        } catch { /* already deleted or external */ }
+                        set('images', form.images.filter((_, j) => j !== i));
+                      }}
                       className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ background: '#dc2626' }}>
                       <Trash2 size={12} color="white" />

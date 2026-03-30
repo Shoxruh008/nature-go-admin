@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
+import { ref as storageRef, deleteObject } from 'firebase/storage';
 import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import AuthGuard from '@/components/AuthGuard';
 import ReviewEditModal from '@/components/ReviewEditModal';
@@ -70,12 +71,29 @@ export default function ReviewsPage() {
     }
   };
 
-  const deleteReview = async (id: string) => {
-    if (!confirm("Bu sharhni o'chirasizmi?")) return;
-    setDeletingId(id);
+  const deleteReview = async (review: ReviewModel) => {
+    if (!confirm("Bu sharhni o'chirasizmi? Rasmlari ham o'chadi.")) return;
+    setDeletingId(review.id);
     try {
-      await deleteDoc(doc(db, 'reviews', id));
-      setReviews(rs => rs.filter(r => r.id !== id));
+      // Delete review images from Storage
+      if (review.images?.length) {
+        await Promise.all(review.images.map(async (url) => {
+          try {
+            if (url && url.includes('firebasestorage')) {
+              await deleteObject(storageRef(storage, url));
+            }
+          } catch { /* already deleted or external URL */ }
+        }));
+      }
+      await deleteDoc(doc(db, 'reviews', review.id));
+      setReviews(rs => rs.filter(r => r.id !== review.id));
+
+      // Recalculate baseRating after deletion
+      const remaining = reviews.filter(r => r.id !== review.id && r.placeId === review.placeId && r.isPublished);
+      if (remaining.length > 0) {
+        const avg = remaining.reduce((sum, r) => sum + (r.rating || 0), 0) / remaining.length;
+        await updateDoc(doc(db, 'places', review.placeId), { baseRating: parseFloat(avg.toFixed(2)) });
+      }
     } finally {
       setDeletingId(null);
     }
@@ -273,7 +291,7 @@ export default function ReviewsPage() {
                             <Edit2 size={14} />
                           </button>
                           <button
-                            onClick={() => deleteReview(review.id)}
+                            onClick={() => deleteReview(review)}
                             disabled={deletingId === review.id}
                             className="w-7 h-7 rounded-lg flex items-center justify-center"
                             title="O'chirish"

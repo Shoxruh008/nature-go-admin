@@ -2,12 +2,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { useTheme } from '@/lib/theme-context';
-import { Eye, EyeOff, Leaf, Moon, Sun } from 'lucide-react';
+import { Eye, EyeOff, Leaf } from 'lucide-react';
 
 export default function LoginPage() {
   const { signIn } = useAuth();
-  const { theme, toggle } = useTheme();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,14 +29,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--bg)' }}>
-      <button
-        onClick={toggle}
-        className="fixed top-4 right-4 p-2 rounded-lg btn-ghost"
-        title="Rejimni o'zgartirish"
-      >
-        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
-
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">

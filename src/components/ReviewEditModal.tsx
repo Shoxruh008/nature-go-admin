@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function ReviewEditModal({ review, onClose, onSaved }: Props) {
-  const [form, setForm] = useState({ ...review });
+  const [form, setForm] = useState({ ...review, rating: Math.round(review.rating) });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,23 +31,20 @@ export default function ReviewEditModal({ review, onClose, onSaved }: Props) {
         isPublished: form.isPublished,
       });
 
-      // If published, recalculate the place's baseRating
-      if (form.isPublished) {
-        const snap = await getDocs(
-          query(collection(db, 'reviews'), where('placeId', '==', review.placeId))
-        );
-        const allReviews = snap.docs.map(d => ({ id: d.id, ...d.data() } as ReviewModel));
-        // Use updated rating for the current review
-        const published = allReviews.map(r =>
-          r.id === review.id ? { ...r, rating: form.rating, isPublished: form.isPublished } : r
-        ).filter(r => r.isPublished);
+      // Recalculate baseRating for the place
+      const snap = await getDocs(
+        query(collection(db, 'reviews'), where('placeId', '==', review.placeId))
+      );
+      const allReviews = snap.docs.map(d => ({ id: d.id, ...d.data() } as ReviewModel));
+      const published = allReviews
+        .map(r => r.id === review.id ? { ...r, rating: form.rating, isPublished: form.isPublished } : r)
+        .filter(r => r.isPublished);
 
-        if (published.length > 0) {
-          const avg = published.reduce((sum, r) => sum + (r.rating || 0), 0) / published.length;
-          await updateDoc(doc(db, 'places', review.placeId), {
-            baseRating: parseFloat(avg.toFixed(2))
-          });
-        }
+      if (published.length > 0) {
+        const avg = published.reduce((sum, r) => sum + (r.rating || 0), 0) / published.length;
+        await updateDoc(doc(db, 'places', review.placeId), {
+          baseRating: parseFloat(avg.toFixed(2))
+        });
       }
 
       onSaved();
@@ -74,38 +71,28 @@ export default function ReviewEditModal({ review, onClose, onSaved }: Props) {
             <input className="input" value={form.authorName} onChange={e => set('authorName', e.target.value)} />
           </div>
 
+          {/* Rating — only whole numbers 1-5 via stars */}
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
-              Reyting
+              Reyting — <span style={{ color: 'var(--text)' }}>{form.rating} / 5</span>
             </label>
-            {/* Star picker */}
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-3">
               {[1, 2, 3, 4, 5].map(star => (
                 <button
                   key={star}
                   type="button"
                   onClick={() => set('rating', star)}
-                  className="transition-transform hover:scale-110"
+                  className="transition-transform hover:scale-110 active:scale-95"
+                  title={`${star} yulduz`}
                 >
                   <Star
-                    size={28}
+                    size={32}
                     fill={star <= form.rating ? '#f59e0b' : 'none'}
                     color={star <= form.rating ? '#f59e0b' : 'var(--border)'}
+                    strokeWidth={1.5}
                   />
                 </button>
               ))}
-              <span className="text-sm ml-1 font-medium" style={{ color: 'var(--text-muted)' }}>
-                {form.rating}/5
-              </span>
-            </div>
-            <input
-              className="input"
-              type="range" min={1} max={5} step={0.5}
-              value={form.rating}
-              onChange={e => set('rating', parseFloat(e.target.value))}
-            />
-            <div className="flex justify-between text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
             </div>
           </div>
 

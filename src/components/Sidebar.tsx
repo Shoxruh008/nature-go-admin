@@ -2,10 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { useTheme } from '@/lib/theme-context';
-import {
-  BarChart3, MapPin, MessageSquare, LogOut, Moon, Sun, Leaf, Menu, X
-} from 'lucide-react';
+import { BarChart3, MapPin, MessageSquare, LogOut, Leaf, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 const NAV = [
@@ -17,7 +14,6 @@ const NAV = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
-  const { theme, toggle } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const SidebarContent = () => (
@@ -43,9 +39,7 @@ export default function Sidebar() {
               href={href}
               onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                active
-                  ? 'text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                active ? 'text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
               style={active ? { background: 'var(--primary)', color: 'white' } : {}}
             >
@@ -63,15 +57,6 @@ export default function Sidebar() {
           <div className="text-xs font-medium text-white truncate">{user?.email}</div>
           <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>Administrator</div>
         </div>
-
-        {/* Theme toggle */}
-        <button
-          onClick={toggle}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all"
-        >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          {theme === 'dark' ? 'Yorug\' rejim' : 'Qorong\'u rejim'}
-        </button>
 
         {/* Logout */}
         <button
