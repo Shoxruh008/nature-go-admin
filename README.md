@@ -56,7 +56,7 @@ service cloud.firestore {
 git init
 git add .
 git commit -m "Initial admin panel"
-git remote add origin https://github.com/username/nature-go-admin.git
+git remote add origin https://github.com/Shoxruh008/nature-go-admin.git
 git push -u origin main
 ```
 
