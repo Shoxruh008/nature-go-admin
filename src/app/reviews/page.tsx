@@ -5,7 +5,7 @@ import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firesto
 import AuthGuard from '@/components/AuthGuard';
 import ReviewEditModal from '@/components/ReviewEditModal';
 import { ReviewModel } from '@/types';
-import { Search, RefreshCw, Edit2, Trash2, Star, Eye, EyeOff, MessageSquare } from 'lucide-react';
+import { Search, RefreshCw, Edit2, Trash2, Star, Eye, EyeOff, MessageSquare, CheckCircle } from 'lucide-react';
 
 type FilterStatus = 'all' | 'published' | 'unpublished';
 
@@ -18,6 +18,7 @@ export default function ReviewsPage() {
   const [editReview, setEditReview] = useState<ReviewModel | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [ratingUpdateMsg, setRatingUpdateMsg] = useState<string | null>(null);
 
   useEffect(() => { loadReviews(); }, []);
 
@@ -39,8 +40,31 @@ export default function ReviewsPage() {
   const togglePublish = async (review: ReviewModel) => {
     setTogglingId(review.id);
     try {
-      await updateDoc(doc(db, 'reviews', review.id), { isPublished: !review.isPublished });
-      setReviews(rs => rs.map(r => r.id === review.id ? { ...r, isPublished: !r.isPublished } : r));
+      const newPublished = !review.isPublished;
+      await updateDoc(doc(db, 'reviews', review.id), { isPublished: newPublished });
+
+      // Update local state
+      const updatedReviews = reviews.map(r =>
+        r.id === review.id ? { ...r, isPublished: newPublished } : r
+      );
+      setReviews(updatedReviews);
+
+      // Auto recalculate baseRating for the place
+      const placePublished = updatedReviews.filter(
+        r => r.placeId === review.placeId && r.isPublished
+      );
+
+      if (placePublished.length > 0) {
+        const avg = placePublished.reduce((sum, r) => sum + (r.rating || 0), 0) / placePublished.length;
+        const newRating = parseFloat(avg.toFixed(2));
+        await updateDoc(doc(db, 'places', review.placeId), { baseRating: newRating });
+
+        // Show brief notification
+        setRatingUpdateMsg(
+          `Joy reytingi yangilandi: ${newRating} ⭐ (${placePublished.length} ta sharh)`
+        );
+        setTimeout(() => setRatingUpdateMsg(null), 3500);
+      }
     } finally {
       setTogglingId(null);
     }
@@ -95,6 +119,17 @@ export default function ReviewsPage() {
             <RefreshCw size={15} /> Yangilash
           </button>
         </div>
+
+        {/* Rating update toast */}
+        {ratingUpdateMsg && (
+          <div
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium"
+            style={{ background: 'var(--primary)', color: 'white', maxWidth: 340 }}
+          >
+            <CheckCircle size={16} />
+            {ratingUpdateMsg}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="card mb-5">

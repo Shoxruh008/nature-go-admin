@@ -7,12 +7,13 @@ interface ThemeContextType { theme: Theme; toggle: () => void; }
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
+  // Always default to dark mode
+  const [theme, setTheme] = useState<Theme>('dark');
 
   useEffect(() => {
     const saved = localStorage.getItem('admin-theme') as Theme | null;
-    const preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    const t = saved ?? preferred;
+    // Use saved preference, but default to dark if nothing saved
+    const t = saved ?? 'dark';
     setTheme(t);
     document.documentElement.classList.toggle('dark', t === 'dark');
   }, []);
