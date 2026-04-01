@@ -14,6 +14,7 @@ export interface PlaceModel {
   createdAt?: Date | null;
   routeFileUrl?: string | null;
   videoUrl?: string | null;
+  phone?: string | null;
 }
 
 export interface ReviewModel {

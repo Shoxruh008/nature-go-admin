@@ -277,6 +277,36 @@ export default function PlaceEditModal({ place, onClose, onSaved }: Props) {
               onChange={e => set('routeFileUrl', e.target.value || null)} />
           </div>
 
+          {/* ===== PHONE (read-only) ===== */}
+          {form.phone && (
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>
+                📞 Telefon raqam
+              </label>
+              <div
+                className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+              >
+                <div
+                  className="flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-semibold"
+                  style={{ background: 'rgba(34,197,94,0.1)', color: '#16a34a' }}
+                >
+                  🇺🇿 +998
+                </div>
+                <span className="text-sm font-medium tracking-wide" style={{ color: 'var(--text)' }}>
+                  {form.phone.replace('+998', '')}
+                </span>
+                <a
+                  href={`tel:${form.phone}`}
+                  className="ml-auto text-xs px-3 py-1 rounded-lg font-medium transition-opacity hover:opacity-70"
+                  style={{ background: 'rgba(34,197,94,0.1)', color: '#16a34a' }}
+                >
+                  Qo&apos;ng&apos;iroq
+                </a>
+              </div>
+            </div>
+          )}
+
           {error && <div className="p-3 rounded-lg text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
         </div>
 
